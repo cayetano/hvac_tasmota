@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Control Aire Acondicionado · Multi-Tasmota IR (COOLIX)</title>
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --text: #1a2233;
+    --muted: #5f6b80;
+    --primary: #2563eb;
+    --primary-soft: #dbeafe;
+    --success: #16a34a;
+    --success-soft: #dcfce7;
+    --warning: #d97706;
+    --warning-soft: #fef3c7;
+    --danger: #dc2626;
+    --danger-soft: #fee2e2;
+    --cool: #0ea5e9;
+    --heat: #ef4444;
+    --border: #e5e7ef;
+    --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 4px 16px rgba(16,24,40,0.06);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  body { padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { margin: 0; font-size: 22px; font-weight: 700; }
+  .subtitle { color: var(--muted); margin-bottom: 16px; font-size: 14px; }
+
+  .topbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    margin-bottom: 16px;
+  }
+  .topbar h1 { flex: 1 1 auto; min-width: 240px; }
+  .dev-select-wrap {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: var(--card); padding: 10px 14px; border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: var(--shadow);
+  }
+  .dev-select-wrap label { margin: 0; font-size: 12px; }
+  .dev-select-wrap select { min-width: 200px; }
+
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(12, 1fr); }
+  .card { background: var(--card); border-radius: 12px; padding: 18px; box-shadow: var(--shadow);
+          border: 1px solid var(--border); }
+  .card h2 { margin: 0 0 12px; font-size: 15px; color: var(--muted); letter-spacing: .2px; text-transform: uppercase; font-weight: 600; }
+  .c12 { grid-column: span 12; }
+  .c8  { grid-column: span 8; }
+  .c6  { grid-column: span 6; }
+  .c4  { grid-column: span 4; }
+  .c3  { grid-column: span 3; }
+  @media (max-width: 780px) {
+    .c8, .c6, .c4, .c3 { grid-column: span 12; }
+  }
+
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+  input[type="text"], input[type="number"], select {
+    width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+    font-size: 14px; background: #fff; color: var(--text); outline: none;
+  }
+  input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 auto; min-width: 0; }
+
+  button {
+    appearance: none; border: 1px solid var(--border); background: #fff; color: var(--text);
+    border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: transform .03s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+    user-select: none;
+  }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #1d4ed8; border-color: #1d4ed8; }
+  .btn-success { background: var(--success); border-color: var(--success); color: #fff; }
+  .btn-success:hover:not(:disabled) { background: #15803d; border-color: #15803d; }
+  .btn-danger  { background: var(--danger);  border-color: var(--danger);  color: #fff; }
+  .btn-danger:hover:not(:disabled)  { background: #b91c1c; border-color: #b91c1c; }
+  .btn-warning { background: var(--warning); border-color: var(--warning); color: #fff; }
+  .btn-ghost   { background: transparent; }
+  .btn-ghost:hover:not(:disabled) { background: #f1f5f9; }
+  .btn-sm      { padding: 8px 10px; font-size: 13px; border-radius: 8px; }
+
+  .big-display {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 8px 0 16px;
+  }
+  .stat {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center;
+  }
+  .stat .label { color: var(--muted); font-size: 12px; text-transform: uppercase; font-weight: 600; letter-spacing: .3px; }
+  .stat .value { font-size: 28px; font-weight: 700; margin-top: 4px; }
+  .stat.cool-on  { background: linear-gradient(180deg, #eff6ff, #dbeafe); border-color: #bfdbfe; }
+  .stat.heat-on  { background: linear-gradient(180deg, #fef2f2, #fee2e2); border-color: #fecaca; }
+  .stat.on-badge .value::after { content: ""; display:inline-block; width: 8px; height:8px;
+                                  border-radius:50%; background: var(--success); margin-left: 8px;
+                                  box-shadow: 0 0 0 4px rgba(22,163,74,.15); vertical-align: middle; }
+  .stat.off-badge .value { color: var(--muted); }
+  .stat.off-badge .value::after { content: ""; display:inline-block; width: 8px; height:8px;
+                                  border-radius:50%; background: var(--muted); margin-left: 8px;
+                                  vertical-align: middle; }
+
+  .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill.pending  { background: var(--warning-soft); color: var(--warning); }
+  .pill.ok       { background: var(--success-soft); color: var(--success); }
+  .pill.err      { background: var(--danger-soft);  color: var(--danger);  }
+  .pill.info     { background: var(--primary-soft); color: var(--primary); }
+
+  .panel-controls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  @media (max-width: 520px) { .panel-controls { grid-template-columns: repeat(2, 1fr); } }
+
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fff; }
+  .seg button { border-radius: 0; border: 0; border-right: 1px solid var(--border); }
+  .seg button:last-child { border-right: 0; }
+  .seg button.active { background: var(--primary); color: #fff; }
+  .seg button.heat.active { background: var(--heat); color: #fff; }
+  .seg button.cool.active { background: var(--cool); color: #fff; }
+
+  .log {
+    background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 12px 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px; line-height: 1.55; max-height: 220px; overflow: auto; white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .log .t { color: #94a3b8; margin-right: 8px; }
+  .log .ok { color: #4ade80; }
+  .log .er { color: #fca5a5; }
+  .log .req { color: #93c5fd; }
+
+  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip { padding: 4px 8px; background: #f1f5f9; color: #334155;
+          border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .chip.on { background: var(--success-soft); color: var(--success); }
+  .chip.off { background: #f1f5f9; color: #64748b; }
+
+  /* Tabla dispositivos */
+  table.t-dev {
+    width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px;
+  }
+  table.t-dev th, table.t-dev td {
+    padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border);
+  }
+  table.t-dev th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .2px; }
+  table.t-dev td input { margin: 0; }
+  table.t-dev .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .empty-dev { color: var(--muted); font-size: 13px; padding: 10px 0; }
+
+  .footer { margin-top: 18px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Selector rápido DE DISPOSITIVO ACTIVO arriba (siempre visible) -->
+  <div class="topbar">
+    <h1>🌬️ Control HVAC · Multi-Tasmota IR</h1>
+    <div class="dev-select-wrap">
+      <label for="selActiveDev"><b>📍 Dispositivo:</b></label>
+      <select id="selActiveDev"></select>
+      <button id="btnAddDevQuick" class="btn-primary btn-sm" type="button">➕ Añadir</button>
+      <button id="btnJumpCfg" class="btn-ghost btn-sm" type="button">⚙️ Gestionar</button>
+    </div>
+  </div>
+
+  <div class="subtitle">Envía comandos <code>IRHVAC</code> (vendor COOLIX) por HTTP a <b>varios Tasmota</b>.
+    Selecciona el dispositivo arriba, configura Nombre e IP en ⚙️ Gestionar. Cada Tasmota guarda su propio estado (Temp / Modo / Vent).</div>
+
+  <!-- Barra rápida superior: control de secciones colapsables -->
+  <div class="row" style="margin-bottom: 14px;">
+    <button class="btn-ghost btn-sm" id="btnExpandAll" type="button">🔽 Expandir secciones</button>
+    <button class="btn-ghost btn-sm" id="btnCollapseAll" type="button">▶️ Colapsar todo</button>
+    <span style="flex:1 1 auto"></span>
+    <div id="miniState" style="font-size: 13px; align-self: center;">
+      <span class="pill info">Aún no has enviado nada</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- 1) Control HVAC (arriba, siempre visible) -->
+    <section class="card c12">
+      <h2>🎛️ Control HVAC <span id="activeDevTag" style="margin-left:8px;" class="pill info"></span></h2>
+
+      <div class="big-display">
+        <div class="stat" id="statPower">
+          <div class="label">Estado</div>
+          <div class="value" id="vPower">—</div>
+        </div>
+        <div class="stat cool-on" id="statTemp">
+          <div class="label">Temperatura (ºC)</div>
+          <div class="value" id="vTemp">25</div>
+        </div>
+        <div class="stat" id="statFan">
+          <div class="label">Ventilador</div>
+          <div class="value" id="vFan">Min</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom: 12px;">
+        <button id="btnOn"  class="btn-success" style="flex:1;">✅ ON</button>
+        <button id="btnOff" class="btn-danger"  style="flex:1;">⛔ OFF</button>
+      </div>
+
+      <label>Modo</label>
+      <div class="seg" id="segMode" style="margin-bottom: 14px;">
+        <button data-mode="Cool"  class="cool active">❄️ Cool</button>
+        <button data-mode="Heat"  class="heat">🔥 Heat</button>
+        <button data-mode="Dry"   >💧 Dry</button>
+        <button data-mode="Fan"   >🌀 Fan</button>
+        <button data-mode="Auto"  >🔁 Auto</button>
+      </div>
+
+      <!-- Temperatura HORIZONTAL (± BOTONES GRANDES / DEDO · envía inmediatamente) -->
+      <div class="row" style="align-items: center; gap: 10px; margin-bottom: 14px;">
+        <label style="min-width: 100px; margin: 0;">Temperatura</label>
+        <button id="btnTempDown" class="btn-warning"
+                style="flex: 0 0 auto; min-width: 72px; min-height: 56px; font-size: 26px; font-weight: 800;">−</button>
+        <input id="inputTemp" type="number" min="16" max="32" step="1" value="25"
+               style="flex: 0 0 120px; min-height: 56px; text-align:center;
+                      font-weight: 800; font-size: 22px;" />
+        <button id="btnTempUp" class="btn-primary"
+                style="flex: 0 0 auto; min-width: 72px; min-height: 56px; font-size: 26px; font-weight: 800;">+</button>
+        <div class="hint" style="flex: 1 1 auto; margin: 0;">ºC · Rango COOLIX 16 – 32</div>
+      </div>
+
+      <!-- Ventilador: +/- a los LADOS (BOTONES GRANDES / DEDO · SOLO iconos, sin texto) -->
+      <div class="row" style="align-items: center; gap: 10px; margin-bottom: 14px;">
+        <label style="min-width: 100px; margin: 0;">Ventilador</label>
+        <button id="btnFanDown" class="btn-ghost" aria-label="Bajar ventilador" title="Bajar ventilador"
+                style="flex: 0 0 auto; min-width: 64px; min-height: 52px; font-size: 22px;">⏪</button>
+        <div class="seg" id="segFan" style="flex: 1 1 auto; justify-content:center;">
+          <button data-fan="Min"    class="active">Min</button>
+          <button data-fan="Low"    >Low</button>
+          <button data-fan="Medium" >Med</button>
+          <button data-fan="High"   >High</button>
+          <button data-fan="Max"    >Max</button>
+          <button data-fan="Auto"   >Auto</button>
+        </div>
+        <button id="btnFanUp" class="btn-ghost" aria-label="Subir ventilador" title="Subir ventilador"
+                style="flex: 0 0 auto; min-width: 64px; min-height: 52px; font-size: 22px;">⏩</button>
+      </div>
+
+      <details style="margin-top: 6px;">
+        <summary style="cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 600;">
+          + Opciones avanzadas (SwingV / Econo / Turbo / Light / Beep)
+        </summary>
+        <div class="grid" style="margin-top: 12px;">
+          <div class="c4">
+            <label>SwingV</label>
+            <select id="selSwingV">
+              <option>Off</option><option>Auto</option>
+              <option>Min</option><option>Low</option><option>Middle</option>
+              <option>High</option><option>Max</option>
+            </select>
+          </div>
+          <div class="c4">
+            <label>SwingH</label>
+            <select id="selSwingH">
+              <option>Off</option><option>Auto</option>
+              <option>Left</option><option>Middle</option><option>Right</option>
+              <option>LeftMax</option><option>RightMax</option>
+            </select>
+          </div>
+          <div class="c4">
+            <label>&nbsp;</label>
+            <div class="row" style="gap:6px;">
+              <button class="btn-ghost btn-sm" id="btnToggleQuiet">Quiet: Off</button>
+              <button class="btn-ghost btn-sm" id="btnToggleTurbo">Turbo: Off</button>
+            </div>
+            <div class="row" style="gap:6px; margin-top:6px;">
+              <button class="btn-ghost btn-sm" id="btnToggleEcono">Econo: Off</button>
+              <button class="btn-ghost btn-sm" id="btnToggleLight">Light: Off</button>
+            </div>
+            <div class="row" style="gap:6px; margin-top:6px;">
+              <button class="btn-ghost btn-sm" id="btnToggleBeep">Beep: Off</button>
+              <button class="btn-ghost btn-sm" id="btnToggleFilter">Filter: Off</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <div class="row" style="margin-top: 16px;">
+        <button id="btnSend" class="btn-primary" style="flex:1;">📤 Enviar comando AHORA</button>
+      </div>
+    </section>
+
+    <!-- 2) Configuración Tasmota · COLAPSADA (DEBAJO del control) -->
+    <section class="card c12">
+      <details id="secCfg" data-sec="cfg">
+        <summary style="cursor:pointer; font-size: 15px; font-weight: 700; color: var(--muted);
+                        letter-spacing: .2px; text-transform: uppercase;">
+          ⚙️ Gestión Dispositivos + CORS (colapsado para uso diario)
+        </summary>
+
+        <div style="margin-top: 14px;">
+
+          <!-- 2a) AÑADIR NUEVO -->
+          <h2 style="margin-top: 0;">➕ Añadir nuevo Tasmota</h2>
+          <div class="grid">
+            <div class="c4">
+              <label for="newDevName">Nombre nemotécnico</label>
+              <input id="newDevName" type="text" placeholder="Ej: Salón, Dormitorio, Oficina…" />
+            </div>
+            <div class="c4">
+              <label for="newDevIp">IP / Host (sin http://)</label>
+              <input id="newDevIp" type="text" placeholder="192.168.168.228" />
+            </div>
+            <div class="c4" style="align-self: end;">
+              <label>&nbsp;</label>
+              <button id="btnAddDev" class="btn-success" style="width:100%;">➕ Guardar dispositivo</button>
+            </div>
+          </div>
+
+          <!-- 2b) LISTA / EDITAR / BORRAR -->
+          <h2 style="margin-top: 20px;">📋 Mis Tasmota (editar / borrar)</h2>
+          <div id="emptyDevHint" class="empty-dev">Aún no tienes ningún dispositivo. Añade uno arriba ⬆️ (Nombre + IP).</div>
+          <div id="devTableWrap" style="display:none;">
+            <table class="t-dev">
+              <thead>
+                <tr>
+                  <th style="width:26%;">Nombre</th>
+                  <th style="width:26%;">IP</th>
+                  <th style="width:14%;">Activo</th>
+                  <th style="width:34%; text-align:right;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="devTbody"></tbody>
+            </table>
+          </div>
+
+          <!-- 2c) Ajustes por dispositivo ACTIVO (edición inline rápida + CORS) -->
+          <h2 style="margin-top: 22px;">🎚️ Ajustes del dispositivo activo</h2>
+          <div class="row">
+            <div style="flex: 3 1 260px;">
+              <label for="ip">IP / Host del dispositivo seleccionado</label>
+              <input id="ip" type="text" placeholder="192.168.1.123" />
+              <div class="hint">Se actualiza automáticamente según el dispositivo activo del selector superior.
+                Si lo editas aquí y pulsas 💾, se guarda en la lista de dispositivos.</div>
+            </div>
+            <div style="flex: 1 1 160px; align-self: end;">
+              <label>&nbsp;</label>
+              <button id="btnTest" class="btn-primary" style="width:100%;">🔌 Probar conexión</button>
+            </div>
+            <div style="flex: 1 1 160px; align-self: end;">
+              <label>&nbsp;</label>
+              <button id="btnSaveIp" class="btn-ghost" style="width:100%;">💾 Guardar IP</button>
+            </div>
+          </div>
+          <div class="chips" id="connChips"></div>
+
+          <div class="grid" style="margin-top: 12px;">
+            <div class="c6">
+              <label style="margin-bottom: 0; display: inline-flex; gap: 8px; align-items: center;
+                            font-size: 13px; cursor: pointer; color: var(--text);">
+                <input type="checkbox" id="chkForceNoCors" style="width:16px; height:16px; accent-color: var(--primary);" />
+                <b>Forzar modo no-cors SIEMPRE</b>
+              </label>
+              <div class="hint" style="margin-top:4px;">
+                Si tu Tasmota NO envía <code>Access-Control-Allow-Origin</code>, marca esta casilla.
+                El comando SÍ se envía y ejecuta, solo no podrás leer la respuesta.
+              </div>
+            </div>
+            <div class="c6">
+              <label>&nbsp;</label>
+              <div class="row" style="gap:6px;">
+                <button id="btnFixCors" class="btn-warning" style="flex:1;">🧙 Intentar arreglar CORS en Tasmota</button>
+                <button id="btnCheckCors" class="btn-ghost" style="flex:1;">🔍 Probar si lee STATUS</button>
+              </div>
+              <div class="hint" style="margin-top:4px;">
+                <b>Arreglar CORS</b> envía <code>Backlog SetOption128 1; WebLog 2; Rule0 1; Cors 1; CorsDomain ; SaveData 1</code>
+                por <i>no-cors</i>, luego prueba <code>STATUS 0</code> por cors.
+              </div>
+            </div>
+          </div>
+
+          <div class="hint" style="margin-top: 10px;">
+            🔒 <b>CORS perfecto (0 trabajo):</b> Sube este <code>hvac_V2.html</code> al File System de <i>cada</i> Tasmota
+            (Tools → Manage File system) y abre <code>http://TASMOTA-IP/hvac_V2.html</code>.
+            El HTML se sirve desde el MISMO origen que <code>/cm?cmnd=...</code> → CORS NUNCA falla.
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- 3) Estado & último envío + Log · COLAPSADO (DEBAJO de configuración) -->
+    <section class="card c12">
+      <details id="secStatus" data-sec="status">
+        <summary style="cursor:pointer; font-size: 15px; font-weight: 700; color: var(--muted);
+                        letter-spacing: .2px; text-transform: uppercase;">
+          📡 Estado &amp; último envío · payload &amp; log HTTP (colapsado en uso diario)
+        </summary>
+
+        <div style="margin-top: 14px;" class="grid">
+          <div class="c6">
+            <h2 style="margin-top: 0;">📡 Estado &amp; último envío</h2>
+            <div id="lastResult" style="margin-bottom: 12px;">
+              <span class="pill info">Aún no se ha enviado nada</span>
+            </div>
+            <label>Payload que se enviará</label>
+            <div id="payloadPreview"
+                 style="background:#f8fafc; border:1px dashed var(--border); border-radius:8px;
+                        padding:10px; font-family: ui-monospace, Menlo, monospace; font-size:12px;
+                        color:#334155; white-space:pre-wrap; word-break: break-word; min-height: 110px;">
+            </div>
+          </div>
+          <div class="c6">
+            <h2 style="margin-top: 0;">📒 Log HTTP</h2>
+            <div id="logEl" class="log"></div>
+          </div>
+        </div>
+      </details>
+    </section>
+  </div>
+
+  <div class="footer">
+    Vendor por defecto: <b>COOLIX</b>. Comando enviado: <code>Backlog IRHVAC ...</code> (para que Tasmota muestre feedback en STATUS).
+    Cada dispositivo tiene <b>su propio estado guardado</b>: al cambiar de Salón → Dormitorio, recuerda Temp/Modo/Vent del dormitorio.
+  </div>
+</div>
+
+<script>
+/* ==========================================================================
+   CONFIGURACIÓN FÁCIL: dispositivos por defecto (si no hay ninguno guardado).
+   Puedes editar este array para dejar tus Tasmota pre-cargados.
+   Ejemplo:
+   const DEFAULT_DEVICES = [
+     { id: "salon",   name: "🏠 Salón",     ip: "192.168.168.228" },
+     { id: "dormi",   name: "🛏️ Dormitorio", ip: "192.168.168.229" },
+   ];
+   ========================================================================== */
+const DEFAULT_DEVICES = [];   // ← edita esto si quieres dispositivos pre-cargados
+
+/* ==========================================================================
+   Valores permitidos según el estándar IRHVAC de Tasmota para COOLIX.
+   ========================================================================== */
+const VENDOR = "COOLIX";
+const TEMPS = Array.from({length: 32 - 16 + 1}, (_, i) => 16 + i);
+const FAN_SPEEDS = ["Min", "Low", "Medium", "High", "Max", "Auto"];
+const MODES = ["Cool", "Heat", "Dry", "Fan", "Auto"];
+
+/* ==========================================================================
+   Helpers
+   ========================================================================== */
+const $ = (id) => document.getElementById(id);
+
+// Persistencia keys
+const LS_KEY_DEVICES        = "tasmota.hvac.devices.v1";
+const LS_KEY_ACTIVE_DEV_ID  = "tasmota.hvac.active_dev_id.v1";
+const LS_KEY_STATES_PER_DEV = "tasmota.hvac.states_per_device.v1";
+const LS_KEY_SEC            = "tasmota.hvac.sections.v1";
+const LS_KEY_FORCE_NOCORS   = "tasmota.hvac.force_no_cors";
+// Legacy keys (mantenemos para importar si el usuario viene de hvac.html / hvac_V2 anterior)
+const LS_LEGACY_IP   = "tasmota.hvac.ip";
+const LS_LEGACY_STATE = "tasmota.hvac.state.v1";
+
+/* ---------- Estado HVAC FACTORY (cada dispositivo tiene el suyo) ---------- */
+function defaultHvacState() {
+  return {
+    Power: "Off",
+    Mode:  "Cool",
+    Temp:  25,
+    FanSpeed: "Min",
+    SwingV: "Off",
+    SwingH: "Off",
+    Quiet:  "Off",
+    Turbo:  "Off",
+    Econo:  "Off",
+    Light:  "Off",
+    Filter: "Off",
+    Clean:  "Off",
+    Beep:   "Off",
+    Sleep:  -1,
+    iFeel:  "Off",
+  };
+}
+
+// Memoria de trabajo (cambia según dispositivo activo)
+let state = defaultHvacState();
+
+// Gestión dispositivos
+let devices = [];               // array [{id, name, ip}]
+let activeDeviceId = null;      // string id del seleccionado
+
+/* ---------------- Log / Helpers generales ---------------- */
+function log(msg, type = "") {
+  const el = $("logEl");
+  if (!el) return;
+  const t = new Date().toTimeString().slice(0,8);
+  const cls = type === "ok" ? "ok" : type === "err" ? "er" : type === "req" ? "req" : "";
+  const line = `<div><span class="t">${t}</span><span class="${cls}">${msg.replace(/[<>]/g, "")}</span></div>`;
+  el.insertAdjacentHTML("afterbegin", line);
+}
+function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+function uid() {
+  return "d_" + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+}
+function ipToBaseUrl(raw) {
+  let host = (raw || "").trim();
+  if (!host) return null;
+  host = host.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+  return "http://" + host;
+}
+function lastStatus(msg, kind) {
+  const cls = kind === "ok" ? "ok" : kind === "err" ? "err" : "pending";
+  const pill = `<span class="pill ${cls}">${msg}</span>`;
+  if ($("lastResult")) $("lastResult").innerHTML = pill;
+  if (typeof miniState === "function") miniState(msg, cls);
+}
+
+/* ==========================================================================
+   DISPOSITIVOS (cargar / guardar / añadir / editar / borrar / activo)
+   ========================================================================== */
+function loadDevices() {
+  let arr = [];
+  try { arr = JSON.parse(localStorage.getItem(LS_KEY_DEVICES) || "[]"); } catch(e){}
+  if (!Array.isArray(arr)) arr = [];
+  // Si no hay nada guardado pero hay dispositivos DEFAULT → usamos defaults
+  if (arr.length === 0 && Array.isArray(DEFAULT_DEVICES) && DEFAULT_DEVICES.length > 0) {
+    arr = DEFAULT_DEVICES.map(d => Object.assign({ id: uid() }, d));
+    saveDevices(arr);
+  }
+  // Importar desde versión anterior (una sola IP guardada como legacy)
+  if (arr.length === 0) {
+    const legacyIp = localStorage.getItem(LS_LEGACY_IP);
+    if (legacyIp && legacyIp.trim()) {
+      arr = [{ id: uid(), name: "📍 Tasmota (importado)", ip: legacyIp.trim() }];
+      saveDevices(arr);
+      log("📦 Importado dispositivo desde versión anterior: " + legacyIp);
+    }
+  }
+  devices = arr;
+}
+function saveDevices(arr) {
+  devices = Array.isArray(arr) ? arr : [];
+  try { localStorage.setItem(LS_KEY_DEVICES, JSON.stringify(devices)); } catch(e){}
+}
+function loadActiveDeviceId() {
+  const saved = localStorage.getItem(LS_KEY_ACTIVE_DEV_ID) || "";
+  if (saved && devices.some(d => d.id === saved)) {
+    activeDeviceId = saved;
+  } else {
+    activeDeviceId = (devices.length > 0) ? devices[0].id : null;
+    saveActiveDeviceId();
+  }
+}
+function saveActiveDeviceId() {
+  if (activeDeviceId) localStorage.setItem(LS_KEY_ACTIVE_DEV_ID, activeDeviceId);
+}
+function getActiveDevice() {
+  if (!activeDeviceId) return null;
+  return devices.find(d => d.id === activeDeviceId) || null;
+}
+function ensureActiveDevice() {
+  if (!activeDeviceId || !devices.some(d => d.id === activeDeviceId)) {
+    if (devices.length > 0) {
+      activeDeviceId = devices[0].id;
+      saveActiveDeviceId();
+    } else {
+      activeDeviceId = null;
+    }
+  }
+  return getActiveDevice();
+}
+
+/* -------- Estados HVAC por dispositivo -------- */
+let statesPerDevice = {};  // { deviceId: {...state...} }
+function loadAllStatesPerDevice() {
+  let obj = {};
+  try { obj = JSON.parse(localStorage.getItem(LS_KEY_STATES_PER_DEV) || "{}"); } catch(e){}
+  if (!obj || typeof obj !== "object") obj = {};
+  statesPerDevice = obj;
+
+  // Importar estado legacy (si existe y no hay estados per device)
+  const hasAnyState = Object.keys(statesPerDevice).length > 0;
+  if (!hasAnyState) {
+    try {
+      const legacy = JSON.parse(localStorage.getItem(LS_LEGACY_STATE) || "null");
+      if (legacy && typeof legacy === "object") {
+        // Se lo asignamos a TODOS los dispositivos (como punto de partida)
+        for (const d of devices) {
+          statesPerDevice[d.id] = Object.assign(defaultHvacState(), legacy);
+        }
+        saveAllStatesPerDevice();
+      }
+    } catch(e){}
+  }
+}
+function saveAllStatesPerDevice() {
+  try { localStorage.setItem(LS_KEY_STATES_PER_DEV, JSON.stringify(statesPerDevice)); } catch(e){}
+}
+function getStateForDevice(devId) {
+  if (!devId) return defaultHvacState();
+  let s = statesPerDevice[devId];
+  if (!s || typeof s !== "object") {
+    s = defaultHvacState();
+    statesPerDevice[devId] = s;
+    saveAllStatesPerDevice();
+  }
+  return Object.assign(defaultHvacState(), s);
+}
+function saveStateForDevice(devId, stateObj) {
+  if (!devId) return;
+  statesPerDevice[devId] = Object.assign(defaultHvacState(), stateObj || {});
+  saveAllStatesPerDevice();
+}
+
+/* -------- Cambiar dispositivo ACTIVO (carga su estado HVAC + actualiza UI) -------- */
+function switchActiveDevice(newId, { syncFromInputs = false } = {}) {
+  // Antes de cambiar, SIEMPRE guardar el estado del dispositivo ANTERIOR (y sincronizar desde inputs si el usuario tocó algo)
+  if (activeDeviceId && syncFromInputs) {
+    // Copiar desde inputs al state actual (por si el usuario tocó inputTemp/selSwing sin cambiar)
+    pullUiInputsToState();
+    saveStateForDevice(activeDeviceId, state);
+  } else if (activeDeviceId) {
+    saveStateForDevice(activeDeviceId, state);
+  }
+
+  activeDeviceId = newId;
+  saveActiveDeviceId();
+
+  // Cargar estado del nuevo
+  state = getStateForDevice(newId);
+
+  // Actualizar UI completa
+  syncUiFromState();
+  syncActiveDeviceTag();
+  syncIpInputFromActive();
+  renderActiveDeviceSelector();     // marca el seleccionado en el select
+  renderDevicesTable();             // marca la fila del activo
+  updatePayloadPreview();
+}
+
+/* ==========================================================================
+   RENDERIZADO UI DISPOSITIVOS
+   ========================================================================== */
+function syncActiveDeviceTag() {
+  const el = $("activeDevTag");
+  if (!el) return;
+  const d = getActiveDevice();
+  if (!d) {
+    el.textContent = "sin dispositivo";
+    el.className = "pill err";
+    return;
+  }
+  el.textContent = `${d.name} → ${d.ip}`;
+  el.className = "pill info";
+}
+function syncIpInputFromActive() {
+  const ipInput = $("ip");
+  if (!ipInput) return;
+  const d = getActiveDevice();
+  ipInput.value = d ? d.ip : "";
+  connChips();
+}
+function connChips() {
+  const d = getActiveDevice();
+  const chips = [];
+  if (d) chips.push(`<span class="chip on">Activo: ${d.name}</span>`);
+  else   chips.push(`<span class="chip off">Sin dispositivo activo</span>`);
+  if (d) chips.push(`<span class="chip on">IP: ${d.ip}</span>`);
+  if (DEFAULT_DEVICES.length) chips.push(`<span class="chip info">Defaults en HTML: ${DEFAULT_DEVICES.length}</span>`);
+  if ($("connChips")) $("connChips").innerHTML = chips.join("");
+}
+
+/* Selector superior compacto */
+function renderActiveDeviceSelector() {
+  const sel = $("selActiveDev");
+  if (!sel) return;
+  sel.innerHTML = "";
+  if (devices.length === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "⚠️ Sin dispositivos · ➕ Añade uno";
+    sel.appendChild(opt);
+    return;
+  }
+  // Asegurar que hay uno activo
+  if (!activeDeviceId) {
+    activeDeviceId = devices[0].id;
+    saveActiveDeviceId();
+  }
+  for (const d of devices) {
+    const opt = document.createElement("option");
+    opt.value = d.id;
+    opt.textContent = `${d.name}  →  ${d.ip}`;
+    if (d.id === activeDeviceId) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+/* Tabla gestión de dispositivos (Config sección) */
+function renderDevicesTable() {
+  const tbody = $("devTbody");
+  const wrap = $("devTableWrap");
+  const emptyHint = $("emptyDevHint");
+  if (!tbody) return;
+
+  if (devices.length === 0) {
+    wrap.style.display = "none";
+    emptyHint.style.display = "";
+    return;
+  }
+  wrap.style.display = "";
+  emptyHint.style.display = "none";
+
+  tbody.innerHTML = "";
+  for (const d of devices) {
+    const tr = document.createElement("tr");
+    tr.dataset.id = d.id;
+    tr.innerHTML = `
+      <td><input type="text" class="td-name" value="${d.name.replace(/"/g,"&quot;")}"></td>
+      <td><input type="text" class="td-ip"   value="${d.ip.replace(/"/g,"&quot;")}"></td>
+      <td>
+        <label style="margin:0; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="radio" name="radActive" class="td-active" value="${d.id}"
+                 ${d.id === activeDeviceId ? "checked" : ""} />
+          <span class="chip ${d.id === activeDeviceId ? "on" : "off"}">${d.id === activeDeviceId ? "SÍ" : "—"}</span>
+        </label>
+      </td>
+      <td style="text-align:right;">
+        <div class="row-actions">
+          <button class="btn-ghost btn-sm td-save" type="button">💾 Guardar</button>
+          <button class="btn-danger btn-sm td-del"  type="button">🗑️ Borrar</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  // Binding inline
+  [...tbody.querySelectorAll("tr")].forEach(tr => {
+    const id = tr.dataset.id;
+    const nameInp = tr.querySelector(".td-name");
+    const ipInp   = tr.querySelector(".td-ip");
+    const radAct  = tr.querySelector(".td-active");
+    const btnSav  = tr.querySelector(".td-save");
+    const btnDel  = tr.querySelector(".td-del");
+
+    if (radAct) radAct.addEventListener("change", () => {
+      if (radAct.checked) switchActiveDevice(id);
+    });
+    if (btnSav) btnSav.addEventListener("click", () => {
+      const nn = (nameInp.value || "").trim();
+      const ii = (ipInp.value || "").trim();
+      if (!nn || !ii) { alert("Nombre e IP son obligatorios."); return; }
+      const idx = devices.findIndex(x => x.id === id);
+      if (idx === -1) return;
+      devices[idx].name = nn;
+      devices[idx].ip   = ii;
+      saveDevices(devices);
+      renderActiveDeviceSelector();
+      renderDevicesTable();
+      syncIpInputFromActive();
+      syncActiveDeviceTag();
+      log("✅ Dispositivo actualizado: " + nn + " → " + ii);
+      lastStatus("Dispositivo actualizado: " + nn, "ok");
+    });
+    if (btnDel) btnDel.addEventListener("click", () => {
+      if (!confirm("¿Borrar el dispositivo '" + devices.find(x=>x.id===id).name + "'?")) return;
+      devices = devices.filter(x => x.id !== id);
+      saveDevices(devices);
+      // Si borramos el activo → asegurar otro
+      if (id === activeDeviceId) {
+        activeDeviceId = null;
+        if (devices.length) activeDeviceId = devices[0].id;
+        saveActiveDeviceId();
+        state = getStateForDevice(activeDeviceId);
+        syncUiFromState();
+        updatePayloadPreview();
+      }
+      renderActiveDeviceSelector();
+      renderDevicesTable();
+      syncIpInputFromActive();
+      syncActiveDeviceTag();
+      log("🗑️ Dispositivo borrado.");
+    });
+  });
+}
+
+/* -------- Añadir dispositivo desde form Configuración (fila Añadir nuevo) -------- */
+function addDeviceFromForm({ focusOnAdded = false } = {}) {
+  const name = ($("newDevName").value || "").trim();
+  const ip   = ($("newDevIp").value   || "").trim();
+  if (!name || !ip) {
+    lastStatus("Rellena Nombre e IP para añadir un dispositivo.", "err");
+    return false;
+  }
+  const newDev = { id: uid(), name, ip };
+  devices = devices.concat([newDev]);
+  saveDevices(devices);
+
+  // Lo ponemos activo
+  activeDeviceId = newDev.id;
+  saveActiveDeviceId();
+  state = getStateForDevice(newDev.id);
+
+  // Limpiar inputs
+  $("newDevName").value = "";
+  $("newDevIp").value = "";
+
+  // Render + sync
+  renderActiveDeviceSelector();
+  renderDevicesTable();
+  syncUiFromState();
+  syncIpInputFromActive();
+  syncActiveDeviceTag();
+  updatePayloadPreview();
+
+  log("➕ Añadido dispositivo: " + name + " → " + ip);
+  lastStatus("Añadido dispositivo: " + name, "ok");
+
+  if (focusOnAdded) {
+    setTimeout(() => $("newDevName") && $("newDevName").focus(), 60);
+  }
+  return true;
+}
+
+/* ==========================================================================
+   Construir payload IRHVAC (estándar Tasmota IRHVAC JSON)
+   ========================================================================== */
+function buildHvacPayload(override = {}) {
+  const p = {
+    Vendor:  VENDOR,
+    Model:   -1,
+    Command: "Control",
+    Mode:    state.Mode,
+    Power:   state.Power,
+    Celsius: "On",
+    Temp:    clamp(Number(state.Temp) || 25, 16, 32),
+    FanSpeed: state.FanSpeed,
+    SwingV: state.SwingV,
+    SwingH: state.SwingH,
+    Quiet:  state.Quiet,
+    Turbo:  state.Turbo,
+    Econo:  state.Econo,
+    Light:  state.Light,
+    Filter: state.Filter,
+    Clean:  state.Clean,
+    Beep:   state.Beep,
+    Sleep:  Number.isFinite(+state.Sleep) ? +state.Sleep : -1,
+    iFeel:  state.iFeel,
+    ...override,
+  };
+  return p;
+}
+function updatePayloadPreview() {
+  if (!$("payloadPreview")) return;
+  $("payloadPreview").textContent = JSON.stringify(buildHvacPayload(), null, 2);
+}
+
+/* ==========================================================================
+   Enviar comando HTTP a Tasmota (mismo fallback cors/no-cors que V2)
+   ========================================================================== */
+const CORS_AVISO_WARNING =
+  "Aviso CORS: el comando SÍ se envió y ejecutó en el Tasmota, pero la " +
+  "respuesta NO se pudo leer (falta Access-Control-Allow-Origin). " +
+  "Marca 'Forzar modo no-cors SIEMPRE' para eliminar este aviso, o activa " +
+  "SetOption128 1 / sube el html al File System del Tasmota.";
+
+const ERROR_SOLUCION_MSG =
+  "No se pudo enviar el comando al Tasmota. Comprueba: 1) la IP es correcta, " +
+  "2) el Tasmota responde por HTTP, y 3) ejecuta en Tasmota: " +
+  "Backlog SetOption128 1; SaveData 1";
+
+function isLikelyCorsError(e) {
+  const s = String((e && e.message) ? e.message : String(e)).toLowerCase();
+  return s.includes("failed to fetch") || s.includes("networkerror");
+}
+
+/* Forzar modo no-cors (mismo flag global para TODOS los dispositivos). */
+function getForzarNoCors() {
+  const el = $("chkForceNoCors");
+  if (el) return !!el.checked;
+  const saved = localStorage.getItem(LS_KEY_FORCE_NOCORS);
+  return saved === "1";
+}
+function setForzarNoCors(v) {
+  const el = $("chkForceNoCors");
+  if (el) el.checked = !!v;
+  localStorage.setItem(LS_KEY_FORCE_NOCORS, v ? "1" : "0");
+}
+
+/* Envía un comando CUALQUIERA (no necesariamente IRHVAC) a /cm?cmnd=...
+ * Usa la IP del dispositivo ACTIVO si ipRaw es null/undefined. */
+async function enviarCmndTasmota(ipRaw, cmnd, { forceMode = null, logPrefix = "→" } = {}) {
+  const finalIpRaw = ipRaw != null ? ipRaw : ((getActiveDevice() || {}).ip || "");
+  const base = ipToBaseUrl(finalIpRaw);
+  const d = getActiveDevice();
+  if (!base) {
+    lastStatus("IP no configurada (elige un dispositivo)", "err");
+    log("ERROR: IP del Tasmota vacía.", "err");
+    return { ok: false, error: "IP vacía" };
+  }
+  const url = `${base}/cm?cmnd=${encodeURIComponent(cmnd)}`;
+  const prefix = d ? `[${d.name}] ${logPrefix}` : logPrefix;
+  log(`${prefix} ${url.split("?")[0]}?cmnd=<${cmnd.slice(0, 60)}${cmnd.length > 60 ? "…" : ""}>`, "req");
+
+  const tryCors = async () => {
+    const res = await fetch(url, { method: "GET", mode: "cors" });
+    let data = null;
+    try { data = await res.json(); } catch(_){}
+    if (!res.ok) return { ok:false, status:res.status, data };
+    return { ok:true, status:res.status, data, via:"cors" };
+  };
+  const tryNoCors = async () => {
+    await fetch(url, { method: "GET", mode: "no-cors" });
+    return { ok:true, status:0, data:null, via:"no-cors", noCorsFallback:true,
+             warning: CORS_AVISO_WARNING };
+  };
+
+  // 1) Usuario fuerza SIEMPRE no-cors
+  if (forceMode === "no-cors" || getForzarNoCors()) {
+    const tag = (forceMode === "no-cors") ? "FORZADO" : "CONFIG";
+    try {
+      const r = await tryNoCors();
+      log(`MODO ${tag} no-cors OK (respuesta opaque). Comando enviado; sin lectura de respuesta.`, "ok");
+      log(CORS_AVISO_WARNING, "req");
+      return r;
+    } catch (e) {
+      const raw = (e && e.message) ? e.message : String(e);
+      log(`MODO ${tag} no-cors FALLÓ: ${raw}`, "err");
+      log(ERROR_SOLUCION_MSG, "err");
+      lastStatus("Fallo total → comprueba IP / SetOption128 1", "err");
+      alert(ERROR_SOLUCION_MSG);
+      return { ok:false, error:raw };
+    }
+  }
+
+  // 2) Usuario fuerza cors (solo casos puntuales)
+  if (forceMode === "cors") {
+    try { return await tryCors(); }
+    catch (e) {
+      const raw = (e && e.message) ? e.message : String(e);
+      log("MODO FORZADO cors lanzó excepción: " + raw, "err");
+      return { ok:false, error:raw };
+    }
+  }
+
+  // 3) Auto: primero cors, si falla CORS → no-cors fallback
+  try {
+    const r = await tryCors();
+    if (!r.ok) {
+      log(`AUTO/cors: HTTP ${r.status}`, "err");
+      if (r.data) log("  Respuesta: " + JSON.stringify(r.data).slice(0, 400));
+      lastStatus(`Error HTTP ${r.status}`, "err");
+      return r;
+    }
+    log(`AUTO/cors OK · HTTP ${r.status}` + (r.data ? ` · ${JSON.stringify(r.data).slice(0, 200)}` : ""), "ok");
+    lastStatus("Comando enviado ✓", "ok");
+    return r;
+  } catch (e1) {
+    const raw1 = (e1 && e1.message) ? e1.message : String(e1);
+    log("AUTO/cors lanzó excepción: " + raw1, "err");
+    if (!isLikelyCorsError(e1)) {
+      log(ERROR_SOLUCION_MSG, "err");
+      lastStatus("Fallo de red (no parece CORS)", "err");
+      return { ok:false, error:raw1 };
+    }
+    log("AUTO: falló CORS → reintento no-cors para asegurar que el comando LLEGA.", "req");
+    try {
+      const r = await tryNoCors();
+      log("AUTO/no-cors OK (sin leer respuesta). Tasmota SÍ recibió el comando.", "ok");
+      log(CORS_AVISO_WARNING, "req");
+      lastStatus("Comando enviado (sin leer respuesta) → SetOption128 1 para leer ✓", "ok");
+      return r;
+    } catch (e2) {
+      const raw2 = (e2 && e2.message) ? e2.message : String(e2);
+      log("AUTO/no-cors falló también: " + raw2, "err");
+      log(ERROR_SOLUCION_MSG, "err");
+      lastStatus("Fallo total al enviar → comprueba IP / SetOption128 1", "err");
+      alert(ERROR_SOLUCION_MSG);
+      return { ok:false, error:raw2 };
+    }
+  }
+}
+
+/* Helper: wrapper sendToTasmota para HVAC. Usa siempre el dispositivo ACTIVO. */
+async function sendToTasmota(ipRaw, payloadHvac, { sendBacklog = true } = {}) {
+  const json = JSON.stringify(payloadHvac);
+  const cmnd = sendBacklog
+    ? `Backlog IRHVAC ${json}; STATUS`
+    : `IRHVAC ${json}`;
+  log(`  Payload HVAC: ${json}`);
+  return enviarCmndTasmota(ipRaw, cmnd);
+}
+
+/* Probar STATUS cors FORZADO. */
+async function probarStatusCors(ip) {
+  lastStatus("Probando si se puede leer respuesta (mode=cors)…", "pending");
+  const r = await enviarCmndTasmota(ip, "STATUS 0", { forceMode: "cors", logPrefix: "🔍 cors?" });
+  if (r.ok && r.status >= 200 && r.status < 300) {
+    lastStatus("CORS OK · SÍ se lee STATUS de Tasmota 🎉", "ok");
+    return true;
+  }
+  lastStatus("No se lee STATUS (CORS KO). Usa modo no-cors o pulsa 'Arreglar CORS'.", "err");
+  return false;
+}
+/* Arreglar CORS */
+async function fixCorsEnTasmota(ip) {
+  const cmds = [
+    "SetOption128 1",
+    "WebLog 2",
+    "Rule0 1",
+    "Cors 1",
+    "CorsDomain ",
+    "SaveData 1",
+  ].join("; ");
+
+  lastStatus("Enviando configuración CORS (por no-cors)…", "pending");
+  const r = await enviarCmndTasmota(
+    ip,
+    "Backlog " + cmds,
+    { forceMode: "no-cors", logPrefix: "🧙 fixCORS→" }
+  );
+  if (!r.ok) {
+    log("No se pudieron enviar los ajustes CORS.", "err");
+    return false;
+  }
+  log("Ajustes CORS enviados al Tasmota (espera 1.5s antes de probar…).", "ok");
+  await new Promise(res => setTimeout(res, 1500));
+  const corsOk = await probarStatusCors(ip);
+  if (corsOk) {
+    log("Arreglo CORS: ÉXITO. Desmarcando 'Forzar no-cors' automáticamente.", "ok");
+    setForzarNoCors(false);
+    lastStatus("CORS SÍ funciona ahora ✅ (lectura disponible)", "ok");
+  } else {
+    log(
+      "Arreglo CORS: no se logró leer STATUS (tu firmware de Tasmota no envía la cabecera). " +
+      "Mantén 'Forzar no-cors' marcado, o sube hvac_V2.html al File System del Tasmota.",
+      "err"
+    );
+  }
+  return corsOk;
+}
+
+/* ==========================================================================
+   UI sync HVAC (mantiene el objeto state sincronizado con inputs/UI)
+   ========================================================================== */
+function pullUiInputsToState() {
+  // Lee desde los inputs a `state` antes de guardar (por si el usuario tocó sin
+  // activar los listeners de change, ej: al cambiar de dispositivo).
+  const vTemp = Number($("inputTemp").value);
+  if (Number.isFinite(vTemp)) state.Temp = clamp(Math.round(vTemp), 16, 32);
+  state.SwingV = $("selSwingV").value;
+  state.SwingH = $("selSwingH").value;
+}
+
+function syncUiFromState() {
+  // On/Off
+  const sp = $("statPower");
+  sp.classList.remove("on-badge", "off-badge");
+  if (state.Power === "On") { sp.classList.add("on-badge"); $("vPower").textContent = "ON"; }
+  else                      { sp.classList.add("off-badge"); $("vPower").textContent = "OFF"; }
+
+  // Temp
+  $("vTemp").textContent = `${state.Temp}`;
+  $("statTemp").classList.remove("cool-on", "heat-on");
+  if (state.Mode === "Cool") $("statTemp").classList.add("cool-on");
+  if (state.Mode === "Heat") $("statTemp").classList.add("heat-on");
+  $("inputTemp").value = state.Temp;
+
+  // Fan
+  $("vFan").textContent = state.FanSpeed;
+  [...document.querySelectorAll("#segFan button")].forEach(b=>{
+    b.classList.toggle("active", b.dataset.fan === state.FanSpeed);
+  });
+
+  // Mode
+  [...document.querySelectorAll("#segMode button")].forEach(b=>{
+    b.classList.toggle("active", b.dataset.mode === state.Mode);
+  });
+
+  // Extras
+  $("selSwingV").value = state.SwingV;
+  $("selSwingH").value = state.SwingH;
+  for (const key of ["Quiet","Turbo","Econo","Light","Beep","Filter"]) {
+    const btn = $("btnToggle" + key);
+    if (btn) btn.textContent = `${key}: ${state[key]}`;
+  }
+
+  updatePayloadPreview();
+}
+
+/* Toggle avanzados */
+function toggle(key) {
+  state[key] = state[key] === "On" ? "Off" : "On";
+  syncUiFromState();
+  // Guardar inmediatamente en estado del dispositivo activo
+  if (activeDeviceId) saveStateForDevice(activeDeviceId, state);
+  log("Ajuste local (sin enviar aún): " + key + " = " + state[key]);
+}
+
+/* Mini pastilla superior de estado general */
+function miniState(html, cls = "info") {
+  const el = $("miniState");
+  if (!el) return;
+  el.innerHTML = `<span class="pill ${cls}">${html}</span>`;
+}
+
+/* ---------------- Secciones colapsables ---------------- */
+function loadSecStates() {
+  let cfg = { cfg: false, status: false };
+  try { cfg = Object.assign(cfg, JSON.parse(localStorage.getItem(LS_KEY_SEC) || "{}")); } catch (e) {}
+  ["cfg","status"].forEach(k => {
+    const el = document.getElementById("sec" + k[0].toUpperCase() + k.slice(1));
+    if (el) el.open = !!cfg[k];
+  });
+}
+function saveSecStates() {
+  const cfg = {
+    cfg: !!$("secCfg").open,
+    status: !!$("secStatus").open,
+  };
+  localStorage.setItem(LS_KEY_SEC, JSON.stringify(cfg));
+}
+function collapseAll()   { ["secCfg","secStatus"].forEach(id=>{ const e=$(id); if(e) e.open=false; }); saveSecStates(); }
+function expandAll()     { ["secCfg","secStatus"].forEach(id=>{ const e=$(id); if(e) e.open=true;  }); saveSecStates(); }
+
+/* ---------------- Bind events GLOBALES ---------------- */
+function bindEvents() {
+
+  /* ===== Dispositivos: selector superior ===== */
+  const selActive = $("selActiveDev");
+  if (selActive) selActive.addEventListener("change", () => {
+    const newId = selActive.value || null;
+    if (newId && newId !== activeDeviceId) switchActiveDevice(newId, { syncFromInputs: true });
+  });
+
+  // Botones barra superior: Añadir rápido y Gestionar
+  const baq = $("btnAddDevQuick");
+  if (baq) baq.addEventListener("click", () => {
+    // Abrir la sección cfg
+    const cfg = $("secCfg"); if (cfg) cfg.open = true;
+    saveSecStates();
+    setTimeout(() => {
+      const f = $("newDevName"); if (f) f.focus();
+    }, 80);
+    // Auto-relleno sugerente: si el usuario ha escrito en el input ip rápido de la sección lo cogemos
+  });
+  const bjc = $("btnJumpCfg");
+  if (bjc) bjc.addEventListener("click", () => {
+    const cfg = $("secCfg"); if (cfg) cfg.open = true; saveSecStates();
+  });
+
+  /* ===== Añadir dispositivo (sección Configuración) ===== */
+  const bad = $("btnAddDev");
+  if (bad) bad.addEventListener("click", () => addDeviceFromForm({ focusOnAdded: true }));
+  ["newDevName","newDevIp"].forEach(id => {
+    const el = $(id);
+    if (el) el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); addDeviceFromForm(); }
+    });
+  });
+
+  /* ===== Botones IP rápida (por dispositivo activo) ===== */
+  $("btnSaveIp").onclick = () => {
+    const d = getActiveDevice();
+    if (!d) { lastStatus("Elige un dispositivo primero o añade uno nuevo.", "err"); return; }
+    const newIp = ($("ip").value || "").trim();
+    if (!newIp) { lastStatus("IP vacía", "err"); return; }
+    const idx = devices.findIndex(x => x.id === d.id);
+    if (idx === -1) return;
+    devices[idx].ip = newIp;
+    saveDevices(devices);
+    renderActiveDeviceSelector();
+    renderDevicesTable();
+    syncIpInputFromActive();
+    syncActiveDeviceTag();
+    log("💾 IP del dispositivo activo actualizada: " + d.name + " → " + newIp);
+    lastStatus("IP guardada: " + newIp, "ok");
+  };
+
+  // Botones colapsar/expandir + recordar
+  const exa = $("btnExpandAll");   if (exa) exa.addEventListener("click", expandAll);
+  const coa = $("btnCollapseAll"); if (coa) coa.addEventListener("click", collapseAll);
+  ["secCfg","secStatus"].forEach(id=>{
+    const d = $(id); if (d) d.addEventListener("toggle", saveSecStates);
+  });
+
+  // Checkbox forzar no-cors
+  const chk = $("chkForceNoCors");
+  if (chk) {
+    chk.checked = (localStorage.getItem(LS_KEY_FORCE_NOCORS) === "1");
+    chk.addEventListener("change", () => {
+      setForzarNoCors(chk.checked);
+      log("Configuración guardada: Forzar no-cors = " + (chk.checked ? "ON" : "OFF"));
+    });
+  }
+
+  /* ===== Enviar comando / HVAC ===== */
+  async function sendCurrentAndSave(extraLog = "") {
+    const p = buildHvacPayload();
+    // Guarda estado del dispositivo actual
+    if (activeDeviceId) saveStateForDevice(activeDeviceId, state);
+    updatePayloadPreview();
+    if (extraLog) log(extraLog);
+    return sendToTasmota(null, p);   // null = usar IP del dispositivo ACTIVO
+  }
+
+  // Botón Probar conexión (dispositivo activo)
+  $("btnTest").onclick = async () => {
+    const d = getActiveDevice();
+    if (!d) { lastStatus("Elige un dispositivo primero.", "err"); return; }
+    const base = ipToBaseUrl(d.ip);
+    if (!base) { lastStatus("IP vacía en dispositivo.", "err"); return; }
+    lastStatus("Probando conexión (AUTO, respeta modo configurado)…", "pending");
+    const r = await enviarCmndTasmota(null, "STATUS 0", { logPrefix: "🔌 test→" });
+    if (r.ok) {
+      if (r.via === "cors" && r.data) {
+        lastStatus("Conexión OK (CORS) · STATUS 0 recibido ✅", "ok");
+        log("Test conexión OK: " + JSON.stringify(r.data).slice(0, 220), "ok");
+      } else {
+        lastStatus("Conexión OK (sin leer respuesta) · comando enviado ✅", "ok");
+      }
+    }
+  };
+
+  // 🔍 Probar si lee STATUS (FORZADO cors)
+  $("btnCheckCors").onclick = async () => {
+    const d = getActiveDevice();
+    if (!d) { lastStatus("Elige un dispositivo primero.", "err"); return; }
+    await probarStatusCors(d.ip);
+  };
+  // 🧙 Arreglar CORS
+  $("btnFixCors").onclick = async () => {
+    const d = getActiveDevice();
+    if (!d) { lastStatus("Elige un dispositivo primero.", "err"); return; }
+    await fixCorsEnTasmota(d.ip);
+  };
+
+  // ON / OFF → enviar inmediatamente
+  $("btnOn").onclick = async () => {
+    state.Power = "On";
+    await sendCurrentAndSave("Encendiendo unidad…");
+    syncUiFromState();
+  };
+  $("btnOff").onclick = async () => {
+    state.Power = "Off";
+    await sendCurrentAndSave("Apagando unidad…");
+    syncUiFromState();
+  };
+
+  // Temp ± → enviar inmediatamente
+  $("btnTempUp").onclick = async () => {
+    state.Temp = clamp(Number(state.Temp) + 1, 16, 32);
+    state.Power = "On";
+    syncUiFromState();
+    await sendCurrentAndSave(`Subir temperatura a ${state.Temp} ºC`);
+  };
+  $("btnTempDown").onclick = async () => {
+    state.Temp = clamp(Number(state.Temp) - 1, 16, 32);
+    state.Power = "On";
+    syncUiFromState();
+    await sendCurrentAndSave(`Bajar temperatura a ${state.Temp} ºC`);
+  };
+  $("inputTemp").addEventListener("change", () => {
+    const v = Number($("inputTemp").value);
+    if (Number.isFinite(v)) { state.Temp = clamp(Math.round(v), 16, 32); }
+    syncUiFromState();
+    if (activeDeviceId) saveStateForDevice(activeDeviceId, state);
+  });
+
+  // Fan ± → enviar inmediatamente
+  $("btnFanUp").onclick = async () => {
+    const i = FAN_SPEEDS.indexOf(state.FanSpeed);
+    state.FanSpeed = FAN_SPEEDS[clamp(i + 1, 0, FAN_SPEEDS.length - 1)];
+    syncUiFromState();
+    await sendCurrentAndSave(`Ventilador → ${state.FanSpeed}`);
+  };
+  $("btnFanDown").onclick = async () => {
+    const i = FAN_SPEEDS.indexOf(state.FanSpeed);
+    state.FanSpeed = FAN_SPEEDS[clamp(i - 1, 0, FAN_SPEEDS.length - 1)];
+    syncUiFromState();
+    await sendCurrentAndSave(`Ventilador → ${state.FanSpeed}`);
+  };
+  [...document.querySelectorAll("#segFan button")].forEach(b => {
+    b.addEventListener("click", () => {
+      state.FanSpeed = b.dataset.fan;
+      syncUiFromState();
+      if (activeDeviceId) saveStateForDevice(activeDeviceId, state);
+      log("Selección local (pulsa Enviar para aplicar): FanSpeed = " + state.FanSpeed);
+    });
+  });
+
+  // Mode → actualiza estado local (envía manual)
+  [...document.querySelectorAll("#segMode button")].forEach(b => {
+    b.addEventListener("click", () => {
+      state.Mode = b.dataset.mode;
+      syncUiFromState();
+      if (activeDeviceId) saveStateForDevice(activeDeviceId, state);
+      log("Selección local (pulsa Enviar para aplicar): Mode = " + state.Mode);
+    });
+  });
+
+  // Swing / SwingH
+  $("selSwingV").addEventListener("change", e => {
+    state.SwingV = e.target.value; syncUiFromState();
+    if (activeDeviceId) saveStateForDevice(activeDeviceId, state);
+  });
+  $("selSwingH").addEventListener("change", e => {
+    state.SwingH = e.target.value; syncUiFromState();
+    if (activeDeviceId) saveStateForDevice(activeDeviceId, state);
+  });
+
+  // Avanzados (toggle)
+  for (const k of ["Quiet","Turbo","Econo","Light","Beep","Filter"]) {
+    const btn = $("btnToggle" + k);
+    if (btn) btn.addEventListener("click", () => toggle(k));
+  }
+
+  // Botón enviar manual
+  $("btnSend").onclick = async () => {
+    await sendCurrentAndSave("Envío manual desde botón.");
+    syncUiFromState();
+  };
+}
+
+/* ==========================================================================
+   Arranque
+   ========================================================================== */
+function boot() {
+  // 1) Cargar dispositivos + ID activo
+  loadDevices();
+  loadActiveDeviceId();
+  ensureActiveDevice();
+
+  // 2) Cargar estados HVAC por dispositivo
+  loadAllStatesPerDevice();
+  state = getStateForDevice(activeDeviceId);
+
+  // 3) Pintar select / tabla / sync inicial
+  renderActiveDeviceSelector();
+  renderDevicesTable();
+  syncActiveDeviceTag();
+  syncIpInputFromActive();
+
+  // 4) Secciones colapsables + eventos
+  loadSecStates();
+  bindEvents();
+
+  // 5) UI HVAC
+  syncUiFromState();
+  updatePayloadPreview();
+
+  // 6) Estado inicial
+  const d = getActiveDevice();
+  if (!d) {
+    miniState("Añade un Tasmota en ⚙️ Gestionar", "err");
+    log("⚠️ Aún no hay dispositivos. Pulsa ➕ Añadir arriba para crear tu primer Tasmota: nombre + IP.");
+  } else {
+    miniState(`Panel listo · ${d.name} · Elige o añade dispositivos arriba`, "info");
+    log(`Panel cargado. Dispositivo activo: "${d.name}" → ${d.ip}. ` +
+        "Al cambiar de dispositivo, cada uno recuerda su propio Temp / Modo / Vent.");
+  }
+}
+boot();
+</script>
+</body>
+</html>
