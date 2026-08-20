@@ -124,6 +124,7 @@ Backlog IRHVAC {
     -   `USE_IR_REMOTE`, `USE_IR_SEND_NEC`, etc. (estándar IRHVAC)
     -   Y la feature que publica el File System interno en `/ufs/<filename>` (según la modificación concreta de este build).
 -   Flashea siempre de forma segura (Tasmotizer, web OTA si ya tienes un Tasmota base).
+-   Esta basado en la version 15.4 estable. creado el 2026/08/20. Es facil regenerarlo con TasmoCOmpiler, para ello se añade el fichero ùser_config_override.h'. Pero recuerda elegir los siguientes paquetes: ESP32/Generic, Interfaz Web, IR completo y SD card/LittleFS como mínimo.
 
 ---
 
